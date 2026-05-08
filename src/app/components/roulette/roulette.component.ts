@@ -43,7 +43,10 @@ function polar(cx: number, cy: number, r: number, a: number) {
           <div class="wheel-wrap">
             <div class="outer-deco"></div>
             <div class="pointer"></div>
-            <svg #wheelSvg class="wheel-svg" viewBox="0 0 300 300"></svg>
+            <!-- Wrapper div rotado por GSAP; el hub queda fuera para no girar -->
+            <div #wheelWrapper class="wheel-wrapper">
+              <svg #wheelSvg class="wheel-svg" viewBox="0 0 300 300"></svg>
+            </div>
             <div class="hub">
               <span class="hub-num">{{ resultado?.numero ?? '–' }}</span>
             </div>
@@ -159,7 +162,12 @@ function polar(cx: number, cy: number, r: number, a: number) {
       border-top: 20px solid #d4af37;
       filter: drop-shadow(0 0 8px rgba(212,175,55,0.7)); z-index: 10;
     }
-    .wheel-svg { width: 260px; height: 260px; transform-origin: 130px 130px; }
+    .wheel-wrapper {
+      width: 260px; height: 260px;
+      position: absolute;
+      top: 0; left: 0;
+    }
+    .wheel-svg { width: 260px; height: 260px; display: block; }
     .hub {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
       width: 52px; height: 52px; border-radius: 50%;
@@ -223,8 +231,9 @@ function polar(cx: number, cy: number, r: number, a: number) {
   `]
 })
 export class RouletteComponent implements AfterViewInit, OnDestroy {
-  @ViewChild('wheelSvg') wheelSvgEl!: ElementRef<SVGElement>;
-  @ViewChildren('histItem') histItems!: QueryList<ElementRef<HTMLElement>>;
+  @ViewChild('wheelSvg')     wheelSvgEl!:     ElementRef<SVGElement>;
+  @ViewChild('wheelWrapper') wheelWrapperEl!: ElementRef<HTMLElement>;
+  @ViewChildren('histItem')  histItems!:      QueryList<ElementRef<HTMLElement>>;
 
   tipos = [
     { codigo: 'numero'  as ApuestaRuleta['tipo'], nombre: 'Número' },
@@ -337,10 +346,11 @@ export class RouletteComponent implements AfterViewInit, OnDestroy {
     const spins      = 360 * (4 + Math.random() * 2);
     const finalAngle = this.currentRotation + spins + targetDeg - (this.currentRotation % 360);
 
-    // svgOrigin usa coordenadas del viewBox (300×300), centro = 150,150
-    gsap.to(this.wheelSvgEl.nativeElement, {
+    // Rotar el wrapper div (HTML), no el SVG — GSAP maneja correctamente
+    // el transform-origin en elementos HTML con '50% 50%'
+    gsap.to(this.wheelWrapperEl.nativeElement, {
       rotation: finalAngle,
-      svgOrigin: '150 150',
+      transformOrigin: '50% 50%',
       duration: 4 + Math.random(),
       ease: 'power4.out',
       onComplete: () => {
@@ -352,8 +362,8 @@ export class RouletteComponent implements AfterViewInit, OnDestroy {
       }
     });
 
-    // Vibración del puntero sin acumulación de x
-    const pointer = this.wheelSvgEl.nativeElement.closest('.wheel-wrap')?.querySelector('.pointer');
+    // Vibración del puntero sin acumulación
+    const pointer = this.wheelWrapperEl.nativeElement.closest('.wheel-wrap')?.querySelector('.pointer');
     if (pointer) {
       gsap.to(pointer, {
         x: 3, yoyo: true, repeat: 19, duration: 0.07,
@@ -385,6 +395,6 @@ export class RouletteComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    gsap.killTweensOf(this.wheelSvgEl?.nativeElement);
+    gsap.killTweensOf(this.wheelWrapperEl?.nativeElement);
   }
 }
