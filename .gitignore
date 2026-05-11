@@ -3,4 +3,9 @@ dist
 .angular
 *.log
 .DS_Store
+
+# Claude Code (IA)
+.claude/
 .superpowers/
+CLAUDE.md
+docs/superpowers/

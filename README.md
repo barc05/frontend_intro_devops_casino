@@ -152,94 +152,35 @@ dist/
 
 ### 1. `Dockerfile` multi-stage
 
-```dockerfile
-# Stage 1 — compilar la SPA
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --no-audit --no-fund
-COPY . .
-RUN npm run build        # produce dist/casino-frontend/browser/
+Deben escribir un Dockerfile que compile la SPA con Node y la sirva con Nginx.
 
-# Stage 2 — servidor estático
-FROM nginx:alpine AS runtime
-# Eliminar config default de nginx
-RUN rm -rf /usr/share/nginx/html/* && rm -f /etc/nginx/conf.d/default.conf
-# Copiar la config personalizada (ven el punto 2)
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-# Copiar el build — ojo con la subcarpeta browser/
-COPY --from=builder /app/dist/casino-frontend/browser/ /usr/share/nginx/html/
-EXPOSE 80
-```
+Consideraciones clave:
+- Usar un **build multi-stage** para no incluir `node_modules` en la imagen final.
+- El comando de build es `npm run build` (ejecuta `ng build --configuration production`).
+- **Angular 17 genera los archivos en `dist/casino-frontend/browser/`**, no en `dist/casino-frontend/`. Esta subcarpeta extra es nueva desde v17 con el application builder — es un error común al escribir el `COPY` del Dockerfile.
+- El servidor web debe escuchar en el puerto 80.
 
-### 2. `nginx.conf` — configuración mínima para SPA + reverse proxy
+### 2. Configuración de Nginx
 
-```nginx
-server {
-    listen 80;
-    server_name _;
-    root /usr/share/nginx/html;
-    index index.html;
+Nginx debe cumplir dos funciones:
+- **Servidor estático** para los archivos de la SPA.
+- **Reverse proxy** para reenviar `/api/` al backend (puerto 3000).
 
-    # Proxy al backend (debe existir variable de entorno o nombre DNS del servicio)
-    location /api/ {
-        proxy_pass         http://<BACKEND_HOST>:3000/api/;
-        proxy_http_version 1.1;
-        proxy_set_header   Host              $host;
-        proxy_set_header   X-Real-IP         $remote_addr;
-        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
-    }
+Puntos críticos de la configuración:
+- **SPA fallback**: Angular maneja el routing en el navegador. Si el usuario recarga la página directamente en `/lobby` o `/slots`, Nginx buscará un archivo con ese nombre, no lo encontrará y devolverá 404. Se necesita una directiva que sirva `index.html` como fallback para cualquier ruta que no corresponda a un archivo real.
+- **Reverse proxy**: las llamadas a `/api/` deben reenviarse al backend. En `environment.prod.ts` el `apiBaseUrl` es cadena vacía, por lo que el JS del navegador hace llamadas relativas (`/api/juegos`, etc.) que Nginx intercepta y reenvía.
 
-    # SPA fallback — redirige cualquier ruta desconocida al index.html
-    # Sin esto, recargar la página en /lobby o /slots da 404.
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-}
-```
+### 3. `docker-compose.yml`
 
-> **SPA fallback**: Angular maneja el routing en el navegador.
-> Cuando el usuario recarga en `/lobby`, Nginx busca un archivo
-> `/lobby` en disco, no lo encuentra, y con `try_files` sirve
-> `index.html` en su lugar — Angular toma el control y carga la ruta.
-> Sin esta línea, cualquier recarga directa da **404**.
-
-### 3. `docker-compose.yml` (fragmento orientativo)
-
-```yaml
-services:
-  casino-frontend:
-    build: ./casino-frontend
-    ports:
-      - "80:80"
-    environment:
-      - BACKEND_HOST=casino-backend   # nombre del servicio en la misma red
-    depends_on:
-      - casino-backend
-    networks:
-      - casino-net
-
-networks:
-  casino-net:
-```
-
-> Si usan `nginx.conf` estático (no template), pueden ignorar
-> `BACKEND_HOST` y escribir el nombre del servicio directamente
-> en el archivo de configuración de nginx.
+Deben orquestar los servicios `db`, `casino-backend` y `casino-frontend` en una misma red interna, definiendo dependencias, puertos y variables de entorno necesarias.
 
 ### 4. Workflow CI/CD (`.github/workflows/deploy.yml`)
 
-Pasos típicos para una pipeline con EC2:
+El workflow debe ejecutarse en push a la rama `deploy` y contemplar:
+- Build y push de la imagen a un registry (Docker Hub o ECR).
+- Deploy en la instancia EC2 vía SSH.
 
-```
-push a rama deploy
-  ├── Checkout
-  ├── docker build -t usuario/casino-frontend:latest .
-  ├── docker push usuario/casino-frontend:latest      (Docker Hub o ECR)
-  └── SSH a EC2
-        ├── docker pull usuario/casino-frontend:latest
-        └── docker compose up -d --no-deps casino-frontend
-```
+Lean la pauta oficial (`EP2_Instrucciones y Pauta_Encargo_Estudiante.pdf`) para los criterios de evaluación completos.
 
 ---
 
