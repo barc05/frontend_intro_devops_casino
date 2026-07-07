@@ -25,7 +25,7 @@ jobs:
           
       - name: Instalar y Testear (Modo CI)
         run: |
-          npm ci
+          npm install
           npm test -- --watch=false --browsers=ChromeHeadless
 
   deploy:
