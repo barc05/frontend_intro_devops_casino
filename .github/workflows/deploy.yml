@@ -3,58 +3,43 @@ name: CI/CD Frontend VidalCasino
 on:
   push:
     branches: [ deploy ]
-  workflow_dispatch:
-
-env:
-  AWS_REGION: us-east-1
-  ECR_REGISTRY: 605493908341.dkr.ecr.us-east-1.amazonaws.com
-  IMAGE_NAME: casino-frontend
 
 jobs:
   test:
     name: Pruebas Unitarias
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout del codigo
-        uses: actions/checkout@v4
-        
-      - name: Setup Node.js
+      - uses: actions/checkout@v4
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          
-      - name: Instalar dependencias
-        run: npm install
-          
-      - name: Ejecutar Pruebas
-        run: npm test
+      - name: Instalar y Testear
+        run: |
+          npm install
+          npm test -- --watch=false --browsers=ChromeHeadless
 
   deploy:
-    name: Build, Push y Deploy a EKS
+    name: Build, Push y Deploy
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout del codigo
-        uses: actions/checkout@v4
-
-      - name: Configurar credenciales AWS
+      - uses: actions/checkout@v4
+      - name: Configurar AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login en Amazon ECR
+          aws-region: us-east-1
+      - name: Login ECR
         uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build, tag y push a ECR
+      - name: Build y Push
         run: |
-          docker build -t $ECR_REGISTRY/$IMAGE_NAME:latest .
-          docker push $ECR_REGISTRY/$IMAGE_NAME:latest
-
-      - name: Deploy a EKS
+          docker build -t 605493908341.dkr.ecr.us-east-1.amazonaws.com/casino-frontend:latest .
+          docker push 605493908341.dkr.ecr.us-east-1.amazonaws.com/casino-frontend:latest
+      - name: Deploy EKS
         run: |
-          aws eks update-kubeconfig --name vidalcasino-cluster --region $AWS_REGION
+          aws eks update-kubeconfig --name vidalcasino-cluster --region us-east-1
           kubectl apply -f deployment.yaml
-          kubectl rollout restart deployment/$IMAGE_NAME
+          kubectl rollout restart deployment/casino-frontend
