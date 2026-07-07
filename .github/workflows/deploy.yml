@@ -25,6 +25,9 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
 
+    - name: Start Docker Daemon
+      run: sudo systemctl start docker
+
     - name: Build, Tag and Push Image to Amazon ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -32,8 +35,10 @@ jobs:
         IMAGE_TAG: ${{ github.sha }}
       run: |
         VERSION_TAG="v1.0.0"
+
+        export DOCKER_BUILDKIT=1
         
-        # Construcción con los 3 tags exigidos por el docente
+
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
                      -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
                      -t $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION_TAG .
@@ -48,10 +53,8 @@ jobs:
 
     - name: Deploy Manifests to EKS Cluster
       run: |
-        # Reemplaza la variable del ID de cuenta en el deployment.yaml antes de aplicar
         sed -i "s/\${AWS_ACCOUNT_ID}/${{ steps.login-ecr.outputs.registry }}/g" deployment.yaml
         
         kubectl apply -f deployment.yaml
         
-        # Forzar reinicio para que Kubernetes descargue la versión más nueva
         kubectl rollout restart deployment/casino-frontend
