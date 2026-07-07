@@ -50,6 +50,8 @@ jobs:
 
     - name: Deploy Manifests to EKS Cluster
       run: |
+        REGISTRY_URL="605493908341.dkr.ecr.us-east-1.amazonaws.com/casino-frontend"
+
         sed -i "s|IMAGEN_MUTABLE|$ECR_REGISTRY/$REPO_NAME:${{ github.sha }}|g" deployment.yaml
 
         kubectl apply -f deployment.yaml
