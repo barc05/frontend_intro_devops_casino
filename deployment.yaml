@@ -16,8 +16,7 @@ spec:
     spec:
       containers:
       - name: casino-frontend
-        image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/casino-frontend:latest
-        imagePullPolicy: Always
+        image: IMAGEN_MUTABLE
         ports:
         - containerPort: 8080
         resources:

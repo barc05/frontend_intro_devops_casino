@@ -31,21 +31,18 @@ jobs:
     - name: Build, Tag and Push Image to Amazon ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: casino-frontend
-        IMAGE_TAG: ${{ github.sha }}
       run: |
         VERSION_TAG="v1.0.0"
-
+        REPO_NAME="casino-frontend"
         export DOCKER_BUILDKIT=1
         
-
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-                     -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
-                     -t $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION_TAG .
+        docker build -t $ECR_REGISTRY/$REPO_NAME:${{ github.sha }} \
+                     -t $ECR_REGISTRY/$REPO_NAME:latest \
+                     -t $ECR_REGISTRY/$REPO_NAME:$VERSION_TAG .
         
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$VERSION_TAG
+        docker push $ECR_REGISTRY/$REPO_NAME:${{ github.sha }}
+        docker push $ECR_REGISTRY/$REPO_NAME:latest
+        docker push $ECR_REGISTRY/$REPO_NAME:$VERSION_TAG
 
     - name: Update Kubeconfig for EKS
       run: |
@@ -53,8 +50,8 @@ jobs:
 
     - name: Deploy Manifests to EKS Cluster
       run: |
-        sed -i "s/\${AWS_ACCOUNT_ID}/${{ steps.login-ecr.outputs.registry }}/g" deployment.yaml
-        
+        sed -i "s|IMAGEN_MUTABLE|$ECR_REGISTRY/$REPO_NAME:${{ github.sha }}|g" deployment.yaml
+
         kubectl apply -f deployment.yaml
         
         kubectl rollout restart deployment/casino-frontend
