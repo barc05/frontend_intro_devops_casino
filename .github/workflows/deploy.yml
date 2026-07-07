@@ -23,10 +23,11 @@ jobs:
         with:
           node-version: '20'
           
-      - name: Instalar y Testear (Modo CI)
-        run: |
-          npm install
-          npm test -- --watch=false --browsers=ChromeHeadless
+      - name: Instalar dependencias
+        run: npm install
+          
+      - name: Ejecutar Pruebas
+        run: npm test
 
   deploy:
     name: Build, Push y Deploy a EKS
