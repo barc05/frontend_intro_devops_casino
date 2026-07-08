@@ -9,7 +9,7 @@ RUN npm run build --configuration=production
 # Etapa 2
 FROM nginxinc/nginx-unprivileged:alpine
 
-COPY --from=build /app/dist/casino-frontend/* /usr/share/nginx/html
+COPY --from=build /app/dist/casino-frontend/browser/* /usr/share/nginx/html/
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
